@@ -5,16 +5,21 @@ const Docker = require("dockerode");
 const client = require("prom-client");
 const axios = require("axios");
 
+const app = express();
 
 const docker = new Docker({
   socketPath: "/var/run/docker.sock",
 });
-const app = express();
 
 client.collectDefaultMetrics();
 
 app.use(cors());
 
+/*
+|--------------------------------------------------------------------------
+| System Metrics
+|--------------------------------------------------------------------------
+*/
 app.get("/api/system", async (req, res) => {
   try {
     const cpu = await si.currentLoad();
@@ -30,30 +35,89 @@ app.get("/api/system", async (req, res) => {
       network: network[0].rx_sec || 0,
     });
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
       error: "Failed to fetch system data",
     });
   }
 });
+
+/*
+|--------------------------------------------------------------------------
+| Docker Container Metrics
+|--------------------------------------------------------------------------
+*/
 app.get("/api/containers", async (req, res) => {
   try {
     const containers = await docker.listContainers();
 
-    const result = containers.map((container) => ({
-      id: container.Id.substring(0, 12),
-      name: container.Names[0].replace("/", ""),
-      image: container.Image,
-      state: container.State,
-      status: container.Status,
-    }));
+    const result = await Promise.all(
+      containers.map(async (container) => {
+        const containerObj = docker.getContainer(container.Id);
+
+        const stats = await containerObj.stats({
+          stream: false,
+        });
+
+        const cpuDelta =
+          stats.cpu_stats.cpu_usage.total_usage -
+          stats.precpu_stats.cpu_usage.total_usage;
+
+        const systemDelta =
+          stats.cpu_stats.system_cpu_usage -
+          stats.precpu_stats.system_cpu_usage;
+
+        const cpuPercent =
+          systemDelta > 0
+            ? (
+              (cpuDelta / systemDelta) *
+              stats.cpu_stats.online_cpus *
+              100
+            ).toFixed(2)
+            : "0.00";
+
+        const memoryUsage = (
+          stats.memory_stats.usage /
+          1024 /
+          1024
+        ).toFixed(2);
+
+        const memoryLimit = (
+          stats.memory_stats.limit /
+          1024 /
+          1024
+        ).toFixed(2);
+
+        return {
+          id: container.Id.substring(0, 12),
+          name: container.Names[0].replace("/", ""),
+          image: container.Image,
+          state: container.State,
+          status: container.Status,
+
+          cpu: cpuPercent,
+          memoryUsage,
+          memoryLimit,
+        };
+      })
+    );
 
     res.json(result);
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
       error: "Failed to fetch container data",
     });
   }
 });
+
+/*
+|--------------------------------------------------------------------------
+| Prometheus Query API
+|--------------------------------------------------------------------------
+*/
 app.get("/api/prometheus/cpu", async (req, res) => {
   try {
     const response = await axios.get(
@@ -64,20 +128,33 @@ app.get("/api/prometheus/cpu", async (req, res) => {
         },
       }
     );
+
     res.json(response.data);
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
       error: "Failed to query Prometheus",
     });
   }
 });
 
-const PORT = 3001;
-
+/*
+|--------------------------------------------------------------------------
+| Prometheus Metrics Endpoint
+|--------------------------------------------------------------------------
+*/
 app.get("/metrics", async (req, res) => {
   res.set("Content-Type", client.register.contentType);
   res.end(await client.register.metrics());
 });
+
+/*
+|--------------------------------------------------------------------------
+| Server
+|--------------------------------------------------------------------------
+*/
+const PORT = 3001;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

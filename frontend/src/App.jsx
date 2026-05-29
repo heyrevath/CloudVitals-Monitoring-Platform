@@ -161,10 +161,19 @@ function App() {
         name: container.name,
         region: "docker-local",
         status: container.state === "running" ? "Healthy" : "Critical",
-        cpu: "---",
-        ram: "---",
-        disk: "---",
-        latency: "---",
+
+        cpu: `${container.cpu}%`,
+
+        ram: `${(
+            (Number(container.memoryUsage) /
+                Number(container.memoryLimit)) *
+            100
+        ).toFixed(1)}%`,
+
+        disk: `${container.memoryUsage} MB`,
+
+        latency: "N/A",
+
         uptime: container.status,
     }));
 
