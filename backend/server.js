@@ -2,11 +2,16 @@ const express = require("express");
 const cors = require("cors");
 const si = require("systeminformation");
 const Docker = require("dockerode");
+const client = require("prom-client");
+const axios = require("axios");
+
 
 const docker = new Docker({
   socketPath: "/var/run/docker.sock",
 });
 const app = express();
+
+client.collectDefaultMetrics();
 
 app.use(cors());
 
@@ -49,8 +54,30 @@ app.get("/api/containers", async (req, res) => {
     });
   }
 });
+app.get("/api/prometheus/cpu", async (req, res) => {
+  try {
+    const response = await axios.get(
+      "http://cloudvitals-prometheus:9090/api/v1/query",
+      {
+        params: {
+          query: "process_cpu_seconds_total",
+        },
+      }
+    );
+    res.json(response.data);
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to query Prometheus",
+    });
+  }
+});
 
 const PORT = 3001;
+
+app.get("/metrics", async (req, res) => {
+  res.set("Content-Type", client.register.contentType);
+  res.end(await client.register.metrics());
+});
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

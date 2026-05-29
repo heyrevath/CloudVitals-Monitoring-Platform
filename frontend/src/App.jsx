@@ -268,6 +268,12 @@ function App() {
                 const containerRes = await API.get("/api/containers");
                 setContainers(containerRes.data);
 
+                const promCpuRes = await API.get("/api/prometheus/cpu");
+                console.log(
+                    "Prometheus CPU:",
+                    promCpuRes.data.data.result[0]?.value?.[1]
+                );
+
                 setCpuHistory((prev) => [
                     ...prev.slice(-14),
                     Number(res.data.cpu),
