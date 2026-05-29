@@ -1,7 +1,11 @@
 const express = require("express");
 const cors = require("cors");
 const si = require("systeminformation");
+const Docker = require("dockerode");
 
+const docker = new Docker({
+  socketPath: "/var/run/docker.sock",
+});
 const app = express();
 
 app.use(cors());
@@ -23,6 +27,25 @@ app.get("/api/system", async (req, res) => {
   } catch (error) {
     res.status(500).json({
       error: "Failed to fetch system data",
+    });
+  }
+});
+app.get("/api/containers", async (req, res) => {
+  try {
+    const containers = await docker.listContainers();
+
+    const result = containers.map((container) => ({
+      id: container.Id.substring(0, 12),
+      name: container.Names[0].replace("/", ""),
+      image: container.Image,
+      state: container.State,
+      status: container.Status,
+    }));
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to fetch container data",
     });
   }
 });

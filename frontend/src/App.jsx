@@ -108,6 +108,7 @@ function App() {
     const [memoryHistory, setMemoryHistory] = useState([]);
     const [diskHistory, setDiskHistory] = useState([]);
     const [networkHistory, setNetworkHistory] = useState([]);
+    const [containers, setContainers] = useState([]);
 
     const cpuChartData = cpuHistory.map((value, index) => ({
         time: index,
@@ -156,18 +157,16 @@ function App() {
     if (highNetwork) liveAlerts.push({ type: "Warning", message: "High Network Traffic Detected", time: "Just now", icon: Wifi, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" });
     if (systemHealthy) liveAlerts.push({ type: "Resolved", message: "System is operating normally", time: "Live", icon: CheckCircle2, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" });
 
-    const servers = [
-        {
-            name: "localhost-main-node",
-            region: "local-dev",
-            status: systemHealthy ? "Healthy" : (highCpu || highMemory ? "Critical" : "Warning"),
-            cpu: `${systemData?.cpu || 0}%`,
-            ram: systemData?.totalMemory ? `${((systemData.usedMemory / systemData.totalMemory) * 100).toFixed(0)}%` : "0%",
-            disk: `${systemData?.diskUsed || 0}%`,
-            latency: `${systemData?.network ? (systemData.network / 100).toFixed(0) : 0}ms`,
-            uptime: "Live"
-        }
-    ];
+    const servers = containers.map((container) => ({
+        name: container.name,
+        region: "docker-local",
+        status: container.state === "running" ? "Healthy" : "Critical",
+        cpu: "---",
+        ram: "---",
+        disk: "---",
+        latency: "---",
+        uptime: container.status,
+    }));
 
     const metrics = [
         {
@@ -265,6 +264,9 @@ function App() {
             try {
                 const res = await API.get("/api/system");
                 setSystemData(res.data);
+
+                const containerRes = await API.get("/api/containers");
+                setContainers(containerRes.data);
 
                 setCpuHistory((prev) => [
                     ...prev.slice(-14),
