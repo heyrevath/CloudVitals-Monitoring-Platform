@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudvitals-frontend-service
+
+spec:
+  selector:
+    app: cloudvitals-frontend
+
+  ports:
+    - port: 5173
+      targetPort: 5173
+
+  type: NodePort

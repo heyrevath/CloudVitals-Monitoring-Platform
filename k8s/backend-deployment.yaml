@@ -2,19 +2,23 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cloudvitals-backend
+
 spec:
   replicas: 1
+
   selector:
     matchLabels:
       app: cloudvitals-backend
+
   template:
     metadata:
       labels:
         app: cloudvitals-backend
+
     spec:
       containers:
         - name: backend
-          image: cloudvitals-monitoring-platform-backend:latest
-          imagePullPolicy: Never
+          image: ghcr.io/heyrevath/cloudvitals-backend:latest
+
           ports:
             - containerPort: 3001

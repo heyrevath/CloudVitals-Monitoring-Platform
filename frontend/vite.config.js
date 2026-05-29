@@ -7,4 +7,11 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    host: true,
+    allowedHosts: [
+      'cloudvitals.local',
+      'grafana.cloudvitals.local'
+    ]
+  }
 })
