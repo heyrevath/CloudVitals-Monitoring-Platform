@@ -109,6 +109,7 @@ function App() {
     const [diskHistory, setDiskHistory] = useState([]);
     const [networkHistory, setNetworkHistory] = useState([]);
     const [containers, setContainers] = useState([]);
+    const [logs, setLogs] = useState([]);
 
     const cpuChartData = cpuHistory.map((value, index) => ({
         time: index,
@@ -176,6 +177,8 @@ function App() {
 
         uptime: container.status,
     }));
+
+    const recentLogs = logs.slice(0, 10);
 
     const metrics = [
         {
@@ -276,6 +279,9 @@ function App() {
 
                 const containerRes = await API.get("/api/containers");
                 setContainers(containerRes.data);
+
+                const logsRes = await API.get("/api/logs");
+                setLogs(logsRes.data);
 
                 const promCpuRes = await API.get("/api/prometheus/cpu");
                 console.log(
@@ -822,24 +828,22 @@ function App() {
                     </div>
                 </section>
 
-                {/* Footer */}
-                <footer className="mt-12 flex flex-col items-center justify-between gap-4 rounded-2xl border border-slate-800/60 bg-slate-900/20 px-6 py-5 text-xs text-slate-500 md:flex-row backdrop-blur-md">
-                    <div className="flex items-center gap-2">
-                        <Globe size={14} className="text-cyan-500" />
-                        <p className="tracking-wide">CloudVitals Observability</p>
+                {/* Live Logs */}
+                <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 mt-8">
+                    <h3 className="text-xl font-semibold text-white mb-4">
+                        Live Logs
+                    </h3>
+                    <div className="space-y-2 max-h-80 overflow-y-auto">
+                        {recentLogs.map((log, index) => (
+                            <div 
+                                key={index}
+                                className="text-xs font-mono text-slate-300 border-b border-slate-800 pb-2"
+                            >
+                                {log.log}
+                            </div>
+                        ))}
                     </div>
-
-                    <div className="flex items-center gap-2 font-mono bg-slate-950/50 px-3 py-1.5 rounded-full border border-slate-800/80 shadow-inner">
-                        <span className="text-emerald-500 drop-shadow-[0_0_5px_rgba(52,211,153,0.8)]">●</span>
-                        <span className="uppercase tracking-widest text-[10px]">All Engines Operational</span>
-                    </div>
-
-                    <div className="flex gap-5 font-mono">
-                        <span className="text-slate-400">v2.4.1 Enterprise</span>
-                        <span className="hover:text-cyan-400 cursor-pointer transition-colors">Docs</span>
-                        <span className="hover:text-cyan-400 cursor-pointer transition-colors">Support</span>
-                    </div>
-                </footer>
+                </div>
 
             </div>
         </div>

@@ -139,6 +139,37 @@ app.get("/api/prometheus/cpu", async (req, res) => {
   }
 });
 
+app.get("/api/logs", async (req, res) => {
+  try {
+    const response = await axios.get(
+      "http://cloudvitals-loki:3100/loki/api/v1/query_range",
+      {
+        params: {
+          query: '{job="docker"}',
+          limit: 50,
+          direction: "backward",
+        },
+      }
+    );
+
+    const logs =
+      response.data.data.result.flatMap((stream) =>
+        stream.values.map((entry) => ({
+          timestamp: entry[0],
+          log: entry[1],
+        }))
+      ) || [];
+
+    res.json(logs);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: "Failed to fetch logs",
+    });
+  }
+});
+
+
 /*
 |--------------------------------------------------------------------------
 | Prometheus Metrics Endpoint
