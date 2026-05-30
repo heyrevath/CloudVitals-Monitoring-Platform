@@ -11,7 +11,9 @@ export default defineConfig({
     host: true,
     allowedHosts: [
       'cloudvitals.local',
-      'grafana.cloudvitals.local'
+      'grafana.cloudvitals.local',
+      'frontend',
+      'localhost'
     ]
   }
 })

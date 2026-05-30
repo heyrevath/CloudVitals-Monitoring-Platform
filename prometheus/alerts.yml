@@ -12,7 +12,7 @@ groups:
           summary: Backend service is down
 
       - alert: HighCPUUsage
-        expr: process_cpu_seconds_total > 100
+        expr: rate(process_cpu_seconds_total[5m]) > 0.8
         for: 2m
         labels:
           severity: warning

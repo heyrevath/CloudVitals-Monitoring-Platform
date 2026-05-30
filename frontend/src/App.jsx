@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import API from "./services/api";
 import {
     Activity,
@@ -8,23 +9,20 @@ import {
     CheckCircle2,
     Clock,
     Cpu,
+    Eye,
     Globe,
     HardDrive,
-    Info,
     Search,
     Server,
     ShieldAlert,
-    ShieldCheck,
+    Trash2,
     User,
-    Wifi,
-    Zap
+    Wifi
 } from "lucide-react";
 
 import {
     Area,
     AreaChart,
-    Bar,
-    BarChart,
     CartesianGrid,
     Cell,
     Line,
@@ -47,25 +45,7 @@ const generateSparkline = (base, variance) => {
 
 
 
-const cpuData = [
-    { time: "10:00", value: 32 },
-    { time: "10:05", value: 45 },
-    { time: "10:10", value: 40 },
-    { time: "10:15", value: 52 },
-    { time: "10:20", value: 48 },
-    { time: "10:25", value: 64 },
-    { time: "10:30", value: 58 },
-];
 
-const memoryData = [
-    { time: "10:00", value: 58 },
-    { time: "10:05", value: 62 },
-    { time: "10:10", value: 60 },
-    { time: "10:15", value: 66 },
-    { time: "10:20", value: 72 },
-    { time: "10:25", value: 68 },
-    { time: "10:30", value: 70 },
-];
 
 const networkData = [
     { time: "10:00", ingress: 120, egress: 80 },
@@ -77,28 +57,13 @@ const networkData = [
     { time: "10:30", ingress: 250, egress: 160 },
 ];
 
-const healthData = [
-    { name: "Healthy", value: 85, color: "#10b981" },
-    { name: "Warning", value: 10, color: "#f59e0b" },
-    { name: "Critical", value: 5, color: "#ef4444" },
-];
 
-const latencyData = [
-    { region: "us-east-1", latency: 45 },
-    { region: "eu-central-1", latency: 120 },
-    { region: "ap-south-1", latency: 185 },
-    { region: "ap-southeast-1", latency: 80 },
-    { region: "sa-east-1", latency: 210 },
-];
+
+
 
 // Servers array moved inside App to be dynamic
 
-const alerts = [
-    { type: "Critical", message: "CPU throttling detected on ml-worker-gpu-04", time: "2 min ago", icon: ShieldAlert, color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" },
-    { type: "Warning", message: "High memory utilization on prod-db-postgres-02", time: "15 min ago", icon: AlertCircle, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
-    { type: "Info", message: "Automated backup completed successfully for cluster-alpha", time: "1 hr ago", icon: Info, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
-    { type: "Resolved", message: "Network latency normalized in ap-south-1", time: "3 hrs ago", icon: CheckCircle2, color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20" },
-];
+
 
 function App() {
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -110,6 +75,35 @@ function App() {
     const [networkHistory, setNetworkHistory] = useState([]);
     const [containers, setContainers] = useState([]);
     const [logs, setLogs] = useState([]);
+    const [uptime, setUptime] = useState("-");
+    const [runningContainers, setRunningContainers] = useState("-");
+    const [isFirstFetch, setIsFirstFetch] = useState(true);
+    const [serviceHealth, setServiceHealth] = useState({
+        backend: "Offline",
+        frontend: "Offline",
+        prometheus: "Offline",
+        grafana: "Offline"
+    });
+
+    const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+    const [notifications, setNotifications] = useState([]);
+    const notifiedRef = useRef(new Set());
+    const isFirstFetchRef = useRef(true);
+    const drawerRef = useRef(null);
+    const dropdownRef = useRef(null);
+
+    const markAllAsRead = () => {
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    };
+
+    const clearHistory = () => {
+        setNotifications([]);
+        notifiedRef.current.clear();
+    };
+
+    const markAsRead = (id) => {
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    };
 
     const cpuChartData = cpuHistory.map((value, index) => ({
         time: index,
@@ -128,35 +122,128 @@ function App() {
         network: value,
     }));
 
+    const activeAlertsCount = isFirstFetch ? "-" : notifications.filter(n => n.state === "firing").length;
+    const pendingAlertsCount = isFirstFetch ? "-" : notifications.filter(n => n.state === "pending").length;
+
+    let alertSeverity = "-";
+    if (!isFirstFetch) {
+        alertSeverity = "healthy";
+        if (notifications.filter(n => n.state === "firing").length > 0) {
+            const activeF = notifications.filter(n => n.state === "firing");
+            if (activeF.some(n => n.severity === "critical")) {
+                alertSeverity = "critical";
+            } else if (activeF.some(n => n.severity === "warning")) {
+                alertSeverity = "warning";
+            } else {
+                alertSeverity = "info";
+            }
+        } else if (notifications.filter(n => n.state === "pending").length > 0) {
+            const activeP = notifications.filter(n => n.state === "pending");
+            if (activeP.some(n => n.severity === "critical")) {
+                alertSeverity = "critical";
+            } else if (activeP.some(n => n.severity === "warning")) {
+                alertSeverity = "warning";
+            } else {
+                alertSeverity = "info";
+            }
+        }
+    }
+
+    const systemHealthy = activeAlertsCount === 0 || activeAlertsCount === "-";
+
     const highCpu = Number(systemData?.cpu) > 80;
     const highMemory = Number(systemData?.usedMemory) > 14;
     const highDisk = Number(systemData?.diskUsed) > 80;
     const highNetwork = Number(systemData?.network) > 500000;
 
-    const activeAlertsCount = [highCpu, highMemory, highDisk, highNetwork].filter(Boolean).length;
-    let globalHealthValue = 99.9;
-    if (activeAlertsCount === 1) globalHealthValue = 95.5;
-    else if (activeAlertsCount === 2) globalHealthValue = 88.2;
-    else if (activeAlertsCount > 2) globalHealthValue = 72.4;
+    const getRelativeTime = (isoString) => {
+        const elapsed = currentTime.getTime() - new Date(isoString).getTime();
+        const seconds = Math.floor(elapsed / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
 
-    const getHealthClasses = () => {
-        if (activeAlertsCount === 0) return { border: 'border-emerald-500/20 hover:border-emerald-500/40', bg: 'bg-emerald-500/5', textTitle: 'text-emerald-500/70', textValue: 'text-emerald-400' };
-        if (activeAlertsCount === 1) return { border: 'border-yellow-500/20 hover:border-yellow-500/40', bg: 'bg-yellow-500/5', textTitle: 'text-yellow-500/70', textValue: 'text-yellow-400' };
-        if (activeAlertsCount === 2) return { border: 'border-orange-500/20 hover:border-orange-500/40', bg: 'bg-orange-500/5', textTitle: 'text-orange-500/70', textValue: 'text-orange-400' };
-        return { border: 'border-red-500/20 hover:border-red-500/40', bg: 'bg-red-500/5', textTitle: 'text-red-500/70', textValue: 'text-red-400' };
+        if (seconds < 30) return "Detected just now";
+        if (seconds < 60) return `Detected ${seconds} seconds ago`;
+        if (minutes < 60) return `Detected ${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+        return `Detected ${hours} hour${hours !== 1 ? 's' : ''} ago`;
     };
-    const healthStyles = getHealthClasses();
 
-    const activeReqs = systemData?.network ? (Number(systemData.network) / 10).toFixed(1) : "0.0";
+    const liveAlerts = notifications
+        .map((alert) => {
+            let type = "Critical";
+            let icon = ShieldAlert;
+            let color = "text-red-400";
+            let bg = "bg-red-500/10";
+            let border = "border-red-500/20";
 
-    const systemHealthy = !highCpu && !highMemory && !highDisk && !highNetwork;
+            if (alert.state === "resolved") {
+                type = "Resolved";
+                icon = CheckCircle2;
+                color = "text-emerald-400";
+                bg = "bg-emerald-500/5";
+                border = "border-emerald-500/20";
+            } else if (alert.state === "pending") {
+                type = "Pending";
+                icon = AlertCircle;
+                color = "text-amber-400";
+                bg = "bg-amber-500/5 animate-pulse";
+                border = "border-amber-500/20";
+            } else if (alert.severity === "warning") {
+                type = "Warning";
+                icon = AlertCircle;
+                color = "text-orange-400";
+                bg = "bg-orange-500/10";
+                border = "border-orange-500/20";
+            } else if (alert.severity === "info") {
+                type = "Info";
+                icon = AlertCircle;
+                color = "text-blue-400";
+                bg = "bg-blue-500/10";
+                border = "border-blue-500/20";
+            }
 
-    const liveAlerts = [];
-    if (highCpu) liveAlerts.push({ type: "Critical", message: "High CPU Usage Detected", time: "Just now", icon: ShieldAlert, color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" });
-    if (highMemory) liveAlerts.push({ type: "Critical", message: "High Memory Usage Detected", time: "Just now", icon: AlertCircle, color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" });
-    if (highDisk) liveAlerts.push({ type: "Warning", message: "High Disk Usage Detected", time: "Just now", icon: AlertCircle, color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20" });
-    if (highNetwork) liveAlerts.push({ type: "Warning", message: "High Network Traffic Detected", time: "Just now", icon: Wifi, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" });
-    if (systemHealthy) liveAlerts.push({ type: "Resolved", message: "System is operating normally", time: "Live", icon: CheckCircle2, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" });
+            return {
+                id: alert.id,
+                name: alert.name,
+                type,
+                message: alert.state === 'resolved' ? `Prometheus Alert Resolved: ${alert.name}` : `Prometheus Alert Active: ${alert.name} - ${alert.summary}`,
+                time: getRelativeTime(alert.activeAt),
+                timestamp: new Date(alert.activeAt).getTime(),
+                icon,
+                color,
+                bg,
+                border
+            };
+        })
+        .sort((a, b) => b.timestamp - a.timestamp);
+
+    if (liveAlerts.length === 0) {
+        liveAlerts.push({
+            name: "Resolved",
+            type: "No Active Incidents",
+            message: "All monitored services are healthy",
+            time: "Live",
+            icon: CheckCircle2,
+            color: "text-emerald-400",
+            bg: "bg-emerald-500/5",
+            border: "border-emerald-500/20"
+        });
+    }
+
+    const healthyCount = [
+        serviceHealth.backend,
+        serviceHealth.frontend,
+        serviceHealth.prometheus,
+        serviceHealth.grafana
+    ].filter(s => s === "Online").length;
+
+    const totalCount = 4;
+    const unhealthyCount = totalCount - healthyCount;
+
+    const healthData = [
+        { name: "Healthy", value: healthyCount, color: "#10b981" },
+        { name: "Critical", value: unhealthyCount, color: "#ef4444" },
+    ].filter(item => item.value > 0);
 
     const servers = containers.map((container) => ({
         name: container.name,
@@ -225,50 +312,6 @@ function App() {
             bgAccent: "bg-blue-500/20",
             sparkline: networkHistory.length > 0 ? networkHistory.map(v => ({ value: v })) : generateSparkline(70, 15)
         },
-        {
-            title: "System Uptime",
-            subtitle: "SLA Tracker",
-            value: "99.99%",
-            change: "+0.01%",
-            trend: "up",
-            icon: ShieldCheck,
-            color: "text-green-400",
-            bgAccent: "bg-green-500/20",
-            sparkline: generateSparkline(99.98, 0.02)
-        },
-        {
-            title: "Active Containers",
-            subtitle: "Kubernetes nodes",
-            value: "88%",
-            change: "+12",
-            trend: "up",
-            icon: Box,
-            color: "text-orange-400",
-            bgAccent: "bg-orange-500/20",
-            sparkline: generateSparkline(85, 5)
-        },
-        {
-            title: "API Latency",
-            subtitle: "p95 Response Time",
-            value: "42ms",
-            change: "-5ms",
-            trend: "down",
-            icon: Zap,
-            color: "text-pink-400",
-            bgAccent: "bg-pink-500/20",
-            sparkline: generateSparkline(45, 15)
-        },
-        {
-            title: "Active Alerts",
-            subtitle: "Unresolved issues",
-            value: "3",
-            change: "-2",
-            trend: "down",
-            icon: AlertCircle,
-            color: "text-red-400",
-            bgAccent: "bg-red-500/20",
-            sparkline: generateSparkline(4, 3)
-        },
     ];
 
     useEffect(() => {
@@ -311,6 +354,104 @@ function App() {
             } catch (error) {
                 console.error(error);
             }
+
+            try {
+                const overviewRes = await API.get("/api/system-overview");
+                setUptime(overviewRes.data.uptime);
+                setRunningContainers(overviewRes.data.containers);
+            } catch (error) {
+                console.error("Failed to fetch system overview:", error);
+                setUptime("-");
+                setRunningContainers("-");
+            }
+
+            try {
+                const alertsRes = await API.get("/api/alerts");
+
+                // Update unified notifications state
+                const liveAlertsList = alertsRes.data.alerts || [];
+                setNotifications(prev => {
+                    const liveMap = new Map(liveAlertsList.map(a => [`${a.name}-${a.activeAt}`, a]));
+
+                    // Mark items not in liveMap as resolved
+                    const updated = prev.map(notif => {
+                        const live = liveMap.get(notif.id);
+                        if (live) {
+                            return {
+                                ...notif,
+                                state: live.state,
+                                severity: live.severity,
+                                summary: live.summary
+                            };
+                        } else if (notif.state !== "resolved") {
+                            return {
+                                ...notif,
+                                state: "resolved"
+                            };
+                        }
+                        return notif;
+                    });
+
+                    const existingIds = new Set(prev.map(n => n.id));
+                    const newItems = [];
+
+                    liveAlertsList.forEach(a => {
+                        const id = `${a.name}-${a.activeAt}`;
+                        if (!existingIds.has(id)) {
+                            newItems.push({
+                                id,
+                                name: a.name,
+                                severity: a.severity,
+                                summary: a.summary,
+                                state: a.state,
+                                activeAt: a.activeAt,
+                                read: false
+                            });
+
+                            // Push browser notification if it's not the initial mounting fetch and not already notified
+                            if (!isFirstFetchRef.current && !notifiedRef.current.has(id)) {
+                                notifiedRef.current.add(id);
+                                if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+                                    try {
+                                        new window.Notification("CloudVitals Alert", {
+                                            body: `${a.name} (${a.severity}) is ${a.state === 'firing' ? 'firing' : 'pending'}: ${a.summary}`,
+                                            icon: "/vite.svg"
+                                        });
+                                    } catch (err) {
+                                        console.error("Failed to show browser notification:", err);
+                                    }
+                                }
+                            } else {
+                                // Add to notified set on first load so we don't spam if page is refreshed
+                                notifiedRef.current.add(id);
+                            }
+                        }
+                    });
+
+                    // Prepend new alerts
+                    return [...newItems, ...updated];
+                });
+
+                if (isFirstFetchRef.current) {
+                    isFirstFetchRef.current = false;
+                    setIsFirstFetch(false);
+                }
+            } catch (error) {
+                console.error("Failed to fetch alerts:", error);
+            }
+
+            try {
+                const healthRes = await API.get("/api/service-health");
+                setServiceHealth(healthRes.data);
+            } catch (error) {
+                console.error("Failed to fetch service health:", error);
+                setServiceHealth({
+                    backend: "Offline",
+                    frontend: "Offline",
+                    prometheus: "Offline",
+                    grafana: "Offline"
+                });
+            }
         };
 
         fetchData();
@@ -328,6 +469,33 @@ function App() {
         return () => clearInterval(timer);
     }, []);
 
+    useEffect(() => {
+        if (typeof window !== "undefined" && "Notification" in window) {
+            if (Notification.permission === "default") {
+                Notification.requestPermission();
+            }
+        }
+    }, []);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (
+                drawerRef.current && !drawerRef.current.contains(event.target) &&
+                (!dropdownRef.current || !dropdownRef.current.contains(event.target))
+            ) {
+                setIsNotificationOpen(false);
+            }
+        };
+
+        if (isNotificationOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isNotificationOpen]);
+
     const timeString = currentTime.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
     return (
@@ -335,7 +503,7 @@ function App() {
             <div className="mx-auto max-w-[1600px] p-4 md:p-6 lg:p-8">
 
                 {/* Navbar */}
-                <nav className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl border border-slate-800/60 bg-slate-900/40 px-6 py-4 shadow-sm backdrop-blur-xl">
+                <nav ref={drawerRef} className="relative mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl border border-slate-800/60 bg-slate-900/40 px-6 py-4 shadow-sm backdrop-blur-xl">
                     <div className="flex items-center justify-between w-full md:w-auto gap-4">
                         <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.2)]">
                             <Globe size={24} />
@@ -355,9 +523,17 @@ function App() {
                         </div>
 
                         {/* Mobile notification bell */}
-                        <button className="md:hidden relative text-slate-400 transition hover:text-slate-100">
+                        <button
+                            onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                            className="md:hidden relative text-slate-400 transition hover:text-slate-100 cursor-pointer"
+                        >
                             <Bell size={20} />
-                            <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">3</span>
+                            {typeof activeAlertsCount === "number" && activeAlertsCount > 0 && (
+                                <span className={`absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse ${alertSeverity === "critical" ? "bg-red-500" : "bg-amber-500"
+                                    }`}>
+                                    {activeAlertsCount}
+                                </span>
+                            )}
                         </button>
                     </div>
 
@@ -394,9 +570,17 @@ function App() {
 
                         <div className="h-6 w-px bg-slate-800"></div>
 
-                        <button className="relative text-slate-400 transition hover:text-cyan-400 hover:drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]">
+                        <button
+                            onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                            className="relative text-slate-400 transition hover:text-cyan-400 hover:drop-shadow-[0_0_8px_rgba(34,211,238,0.5)] cursor-pointer"
+                        >
                             <Bell size={20} />
-                            <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse">3</span>
+                            {typeof activeAlertsCount === "number" && activeAlertsCount > 0 && (
+                                <span className={`absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse ${alertSeverity === "critical" ? "bg-red-500" : "bg-amber-500"
+                                    }`}>
+                                    {activeAlertsCount}
+                                </span>
+                            )}
                         </button>
 
                         <div className="flex items-center gap-3 cursor-pointer group">
@@ -405,6 +589,157 @@ function App() {
                             </div>
                         </div>
                     </div>
+
+                    {isNotificationOpen && createPortal(
+                        <div
+                            ref={dropdownRef}
+                            className="fixed right-4 md:right-8 top-24 w-[calc(100vw-2rem)] sm:w-[380px] rounded-[20px] p-4 animate-dropdown-fade-in font-sans"
+                            style={{
+                                background: 'rgba(5, 10, 25, 0.98)',
+                                backdropFilter: 'blur(30px)',
+                                WebkitBackdropFilter: 'blur(30px)',
+                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.6)',
+                                zIndex: 9999,
+                            }}
+                        >
+                            {/* Drawer Header */}
+                            <div
+                                className="flex items-center justify-between pb-3 mb-3"
+                                style={{
+                                    borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+                                }}
+                            >
+                                <div className="flex flex-col gap-0.5">
+                                    <span className="text-sm font-bold text-slate-100 uppercase tracking-wider font-mono">Notifications</span>
+                                    <span className="text-[10px] text-cyan-400 font-semibold font-mono">
+                                        {notifications.filter(n => !n.read && n.state !== 'resolved').length} New Alert{notifications.filter(n => !n.read && n.state !== 'resolved').length !== 1 ? 's' : ''}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2.5">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); markAllAsRead(); }}
+                                        className="text-[10px] font-mono text-slate-400 hover:text-cyan-400 transition-colors flex items-center gap-1 cursor-pointer"
+                                        title="Mark all as read"
+                                    >
+                                        <Eye size={12} />
+                                        Read All
+                                    </button>
+                                    <span className="text-slate-800 font-mono text-xs">|</span>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); clearHistory(); }}
+                                        className="text-[10px] font-mono text-slate-400 hover:text-red-400 transition-colors flex items-center gap-1 cursor-pointer"
+                                        title="Clear all history"
+                                    >
+                                        <Trash2 size={12} />
+                                        Clear
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Drawer List */}
+                            <div className="max-h-80 overflow-y-auto custom-scrollbar pr-1 space-y-2">
+                                {notifications.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center py-10 text-center font-mono">
+                                        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mb-4 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                                            <CheckCircle2 size={24} />
+                                        </div>
+                                        <h4 className="text-sm font-bold text-emerald-400 flex items-center gap-1.5 mb-1">
+                                            ✓ System Healthy
+                                        </h4>
+                                        <p className="text-xs text-slate-400">No active notifications</p>
+                                    </div>
+                                ) : (
+                                    notifications.map((alert) => {
+                                        const isResolved = alert.state === "resolved";
+                                        const isWarning = alert.severity === "warning";
+
+                                        // Colors and states determination
+                                        let severityLabel = "CRITICAL";
+                                        let badgeBg = "bg-red-500/10";
+                                        let badgeText = "text-red-400";
+                                        let badgeBorder = "border-red-500/20";
+                                        let accentColor = "#ef4444"; // Red
+                                        let dotClass = "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)] animate-pulse";
+
+                                        if (isResolved) {
+                                            severityLabel = "HEALTHY";
+                                            badgeBg = "bg-emerald-500/10";
+                                            badgeText = "text-emerald-400";
+                                            badgeBorder = "border-emerald-500/20";
+                                            accentColor = "#10b981"; // Green
+                                            dotClass = "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]";
+                                        } else if (isWarning) {
+                                            severityLabel = "WARNING";
+                                            badgeBg = "bg-amber-500/10";
+                                            badgeText = "text-amber-400";
+                                            badgeBorder = "border-amber-500/20";
+                                            accentColor = "#f59e0b"; // Amber
+                                            dotClass = "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)] animate-pulse";
+                                        } else if (alert.severity === "info") {
+                                            severityLabel = "INFO";
+                                            badgeBg = "bg-blue-500/10";
+                                            badgeText = "text-blue-400";
+                                            badgeBorder = "border-blue-500/20";
+                                            accentColor = "#3b82f6"; // Blue
+                                            dotClass = "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]";
+                                        }
+
+                                        return (
+                                            <div
+                                                key={alert.id}
+                                                onClick={(e) => { e.stopPropagation(); markAsRead(alert.id); }}
+                                                className="group relative flex flex-col gap-2.5 p-4 transition-all cursor-pointer hover:bg-white/[0.06] duration-200"
+                                                style={{
+                                                    background: 'rgba(255, 255, 255, 0.03)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                                                    borderLeft: `4px solid ${accentColor}`,
+                                                    borderRadius: '12px',
+                                                }}
+                                            >
+                                                {/* Unread indicator */}
+                                                {!alert.read && !isResolved && (
+                                                    <span className="absolute top-4 right-4 h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.6)] animate-pulse"></span>
+                                                )}
+
+                                                {/* Top Row: Severity Badge and Status Badge */}
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider font-extrabold border ${badgeBg} ${badgeText} ${badgeBorder}`}>
+                                                        <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`}></span>
+                                                        {severityLabel}
+                                                    </span>
+                                                    
+                                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider font-bold border ${
+                                                        isResolved ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                                                        alert.state === "pending" ? "bg-amber-500/10 text-amber-400 border-amber-500/20 animate-pulse" :
+                                                        "bg-red-500/10 text-red-400 border-red-500/20"
+                                                    }`}>
+                                                        {isResolved ? 'Resolved' : alert.state === 'pending' ? 'Pending' : 'Firing'}
+                                                    </span>
+                                                </div>
+
+                                                {/* Alert Title */}
+                                                <h4 className="text-xs font-bold text-slate-100 group-hover:text-cyan-400 transition-colors leading-tight mt-0.5">
+                                                    {alert.name}
+                                                </h4>
+
+                                                {/* Alert Description */}
+                                                <p className="text-xs text-slate-400 leading-relaxed font-sans">
+                                                    {alert.summary}
+                                                </p>
+
+                                                {/* Detection / Relative Time */}
+                                                <span className="text-[9px] text-slate-500 font-mono mt-0.5">
+                                                    Detected {getRelativeTime(alert.activeAt)}
+                                                </span>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>,
+                        document.body
+                    )}
                 </nav>
 
                 {/* Floating Alert Notifications */}
@@ -459,22 +794,77 @@ function App() {
                                 System Overview
                             </h2>
                             <p className="max-w-2xl text-slate-400 text-lg">
-                                Real-time observability across 5 regions, 1,248 containers, and 45 microservices.
+                                Real-time observability across your host system and running Docker containers.
                             </p>
                         </div>
 
                         <div className="flex flex-wrap sm:flex-nowrap gap-4">
-                            <div className={`w-full sm:w-auto rounded-2xl border ${healthStyles.border} ${healthStyles.bg} px-6 py-4 backdrop-blur-md transition-colors`}>
-                                <p className={`text-xs font-mono ${healthStyles.textTitle} uppercase tracking-wider mb-1`}>Global Health</p>
+                            <div className="w-full sm:w-auto rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-6 py-4 backdrop-blur-md hover:border-emerald-500/40 transition-colors">
+                                <p className="text-xs font-mono text-emerald-500/70 uppercase tracking-wider mb-1">System Uptime</p>
                                 <div className="flex items-baseline gap-2">
-                                    <h3 className={`text-4xl font-bold ${healthStyles.textValue}`}>{globalHealthValue}%</h3>
+                                    <h3 className="text-4xl font-bold text-emerald-400">{uptime}</h3>
                                 </div>
                             </div>
                             <div className="w-full sm:w-auto rounded-2xl border border-cyan-500/20 bg-cyan-500/5 px-6 py-4 backdrop-blur-md hover:border-cyan-500/40 transition-colors">
-                                <p className="text-xs font-mono text-cyan-500/70 uppercase tracking-wider mb-1">Active Requests</p>
+                                <p className="text-xs font-mono text-cyan-500/70 uppercase tracking-wider mb-1">Running Containers</p>
                                 <div className="flex items-baseline gap-2">
-                                    <h3 className="text-4xl font-bold text-cyan-400">{activeReqs}k</h3>
-                                    <span className="text-sm text-slate-500 font-mono">/sec</span>
+                                    <h3 className="text-4xl font-bold text-cyan-400">{runningContainers}</h3>
+                                </div>
+                            </div>
+                            {/* Active Alerts Card */}
+                            <div className="w-full sm:w-auto rounded-2xl border border-red-500/20 bg-red-500/5 px-6 py-4 backdrop-blur-md hover:border-red-500/40 transition-colors min-w-[180px]">
+                                <p className="text-xs font-mono text-red-500/70 uppercase tracking-wider mb-1">Active Alerts</p>
+                                <div className="flex items-baseline gap-2 flex-wrap">
+                                    <h3 className="text-4xl font-bold text-red-400">
+                                        {activeAlertsCount === "-" ? "-" : `${activeAlertsCount} Active Alert${activeAlertsCount !== 1 ? 's' : ''}`}
+                                    </h3>
+                                    {activeAlertsCount !== "-" && pendingAlertsCount !== "-" && (
+                                        <span className="text-xs text-slate-500 font-mono">({pendingAlertsCount} pending)</span>
+                                    )}
+                                </div>
+                                {notifications.filter(n => n.state === "firing").length > 0 && (
+                                    <div className="mt-2 pt-2 border-t border-slate-800 text-[10px] font-mono text-slate-400 space-y-0.5 max-h-16 overflow-y-auto custom-scrollbar">
+                                        {notifications.filter(n => n.state === "firing").map((alert, i) => (
+                                            <div key={i} className="flex items-center gap-1.5">
+                                                <span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-pulse"></span>
+                                                {alert.name}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            {/* Alert Severity Card */}
+                            <div className={`w-full sm:w-auto rounded-2xl border px-6 py-4 backdrop-blur-md transition-colors min-w-[180px] ${
+                                alertSeverity === "critical" ? "border-red-500/20 bg-red-500/5 hover:border-red-500/40" :
+                                alertSeverity === "warning" ? "border-amber-500/20 bg-amber-500/5 hover:border-amber-500/40" :
+                                alertSeverity === "info" ? "border-blue-500/20 bg-blue-500/5 hover:border-blue-500/40" :
+                                alertSeverity === "healthy" ? "border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/40" :
+                                "border-slate-800 bg-slate-900/40"
+                            }`}>
+                                <p className={`text-xs font-mono uppercase tracking-wider mb-1 ${
+                                    alertSeverity === "critical" ? "text-red-500/70" :
+                                    alertSeverity === "warning" ? "text-amber-500/70" :
+                                    alertSeverity === "info" ? "text-blue-500/70" :
+                                    alertSeverity === "healthy" ? "text-emerald-500/70" :
+                                    "text-slate-500/70"
+                                }`}>ALERT SEVERITY</p>
+                                <div className="flex items-baseline gap-2">
+                                    <h3 
+                                        className={`font-bold uppercase tracking-wide ${
+                                            alertSeverity === "critical" ? "text-red-400" :
+                                            alertSeverity === "warning" ? "text-amber-400" :
+                                            alertSeverity === "info" ? "text-blue-400" :
+                                            alertSeverity === "healthy" ? "text-emerald-400" :
+                                            "text-slate-400"
+                                        }`}
+                                        style={{
+                                            fontSize: 'clamp(1rem, 1.5vw, 2rem)',
+                                            whiteSpace: 'nowrap',
+                                            maxWidth: '100%',
+                                        }}
+                                    >
+                                        {alertSeverity ? alertSeverity.toUpperCase() : "UNKNOWN"}
+                                    </h3>
                                 </div>
                             </div>
                         </div>
@@ -667,54 +1057,95 @@ function App() {
 
                 {/* Secondary Charts & Alerts */}
                 <section className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
-                    {/* Region Latency */}
+                    {/* Container Resource Usage */}
                     <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-6 backdrop-blur-sm transition-all hover:border-slate-700/80">
-                        <h3 className="text-lg font-semibold text-slate-200 mb-6">Region Latency</h3>
-                        <div className="h-[220px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={latencyData} layout="vertical" margin={{ top: 0, right: 0, left: 20, bottom: 0 }}>
-                                    <XAxis type="number" hide />
-                                    <YAxis dataKey="region" type="category" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} fontFamily="monospace" />
-                                    <Tooltip
-                                        cursor={{ fill: '#1e293b', opacity: 0.4 }}
-                                        contentStyle={{ backgroundColor: 'rgba(2, 8, 23, 0.9)', borderColor: '#1e293b', borderRadius: '8px', fontSize: '12px', backdropFilter: 'blur(4px)' }}
-                                    />
-                                    <Bar dataKey="latency" radius={[0, 4, 4, 0]} barSize={14}>
-                                        {latencyData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.latency > 150 ? '#f43f5e' : entry.latency > 100 ? '#eab308' : '#2dd4bf'} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
+                        <h3 className="text-lg font-semibold text-slate-200 mb-6 font-mono tracking-wide uppercase">Container CPU Usage</h3>
+                        <div className="h-[220px] flex flex-col justify-center gap-4">
+                            {[
+                                { name: "Backend", key: "backend", color: "bg-cyan-500", text: "text-cyan-400" },
+                                { name: "Frontend", key: "frontend", color: "bg-emerald-500", text: "text-emerald-400" },
+                                { name: "Prometheus", key: "prometheus", color: "bg-orange-500", text: "text-orange-400" },
+                                { name: "Grafana", key: "grafana", color: "bg-purple-500", text: "text-purple-400" }
+                            ].map((service, index) => {
+                                const container = containers.find(c => c.name.includes(service.key));
+                                const rawCpu = container ? parseFloat(container.cpu) : null;
+                                const cpuPercent = rawCpu !== null && !isNaN(rawCpu) ? rawCpu : null;
+                                const displayValue = cpuPercent !== null ? `${cpuPercent.toFixed(2)}%` : "N/A";
+
+                                return (
+                                    <div key={index} className="space-y-2">
+                                        <div className="flex justify-between items-center text-xs font-mono">
+                                            <span className="text-slate-400 font-semibold">{service.name}</span>
+                                            <span className={`font-bold ${service.text}`}>{displayValue}</span>
+                                        </div>
+                                        <div className="h-2 w-full rounded-full bg-slate-950/60 border border-slate-800 overflow-hidden relative">
+                                            {cpuPercent !== null && (
+                                                <div
+                                                    className={`h-full rounded-full ${service.color} transition-all duration-1000 shadow-[0_0_10px_currentColor]`}
+                                                    style={{ width: `${Math.min(cpuPercent, 100)}%` }}
+                                                ></div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
 
-                    {/* Node Health */}
+                    {/* Service Health Status */}
                     <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-6 backdrop-blur-sm transition-all hover:border-slate-700/80">
-                        <h3 className="text-lg font-semibold text-slate-200 mb-6">Node Health Status</h3>
-                        <div className="h-[220px] relative flex items-center justify-center">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={healthData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={70}
-                                        outerRadius={95}
-                                        paddingAngle={3}
-                                        dataKey="value"
-                                        stroke="none"
-                                    >
-                                        {healthData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} style={{ filter: `drop-shadow(0px 0px 4px ${entry.color}80)` }} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip contentStyle={{ backgroundColor: 'rgba(2, 8, 23, 0.9)', borderColor: '#1e293b', borderRadius: '8px', fontSize: '12px', backdropFilter: 'blur(4px)' }} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                            <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
-                                <span className="text-3xl font-bold text-slate-100 drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">85%</span>
-                                <span className="text-[10px] text-emerald-400 font-mono uppercase tracking-widest mt-1">Healthy</span>
+                        <h3 className="text-lg font-semibold text-slate-200 mb-6 font-mono tracking-wide uppercase">Service Health Status</h3>
+                        <div className="h-[220px] flex items-center justify-between gap-2">
+                            {/* Donut Chart Container */}
+                            <div className="w-1/2 h-full relative flex items-center justify-center">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={healthData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={55}
+                                            outerRadius={75}
+                                            paddingAngle={healthData.length > 1 ? 5 : 0}
+                                            dataKey="value"
+                                            stroke="none"
+                                        >
+                                            {healthData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} style={{ filter: `drop-shadow(0px 0px 4px ${entry.color}80)` }} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip contentStyle={{ backgroundColor: 'rgba(2, 8, 23, 0.9)', borderColor: '#1e293b', borderRadius: '8px', fontSize: '12px', backdropFilter: 'blur(4px)' }} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
+                                    <span className="text-2xl font-bold text-slate-100 drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">{healthyCount} / {totalCount}</span>
+                                    <span className={`text-[9px] font-mono uppercase tracking-widest mt-1 ${unhealthyCount > 0 ? 'text-red-400 animate-pulse font-semibold' : 'text-emerald-400'}`}>
+                                        {unhealthyCount > 0 ? 'Degraded' : 'Healthy'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Service Status List */}
+                            <div className="w-1/2 flex flex-col justify-center gap-3 pl-4 border-l border-slate-800/60">
+                                {[
+                                    { name: "Backend", key: "backend" },
+                                    { name: "Frontend", key: "frontend" },
+                                    { name: "Prometheus", key: "prometheus" },
+                                    { name: "Grafana", key: "grafana" }
+                                ].map((service, i) => {
+                                    const isOnline = serviceHealth[service.key] === "Online";
+                                    return (
+                                        <div key={i} className="flex items-center justify-between">
+                                            <span className="text-xs text-slate-400 font-mono font-semibold">{service.name}</span>
+                                            <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider font-bold
+                                                ${isOnline ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20 animate-pulse"}`}
+                                            >
+                                                <span className={`h-1 w-1 rounded-full ${isOnline ? "bg-emerald-400" : "bg-red-400"}`}></span>
+                                                {serviceHealth[service.key] || "Offline"}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
@@ -835,7 +1266,7 @@ function App() {
                     </h3>
                     <div className="space-y-2 max-h-80 overflow-y-auto">
                         {recentLogs.map((log, index) => (
-                            <div 
+                            <div
                                 key={index}
                                 className="text-xs font-mono text-slate-300 border-b border-slate-800 pb-2"
                             >
