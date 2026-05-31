@@ -172,11 +172,12 @@ CloudVitals/
 
 ### Clone Repository
 
-bash git clone https://github.com/your-username/CloudVitals-Monitoring-Platform.git  cd CloudVitals-Monitoring-Platform 
+bash git clone https://github.com/your-username/CloudVitals-Monitoring-Platform.git  
+```text cd CloudVitals-Monitoring-Platform ```
 
 ### Start Application
 
-bash docker compose up -d --build 
+```text bash docker compose up -d --build```
 
 ### Access Services
 
