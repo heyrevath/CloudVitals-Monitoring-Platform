@@ -180,7 +180,11 @@ bash docker compose up -d --build
 
 ### Access Services
 
-text Frontend      : http://localhost:5173 Backend API   : http://localhost:3001 Prometheus    : http://localhost:9090 Alertmanager  : http://localhost:9093 Grafana       : http://localhost:3000 
+Frontend      : http://localhost:5173 
+Backend API   : http://localhost:3001 
+Prometheus    : http://localhost:9090 
+Alertmanager  : http://localhost:9093 
+Grafana       : http://localhost:3000 
 
 ---
 
