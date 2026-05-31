@@ -1,4 +1,4 @@
-# CloudVitals
+# CloudVitals Monitoring Platform
 
 CloudVitals is a cloud monitoring and observability platform designed to provide real-time visibility into infrastructure health, container status, system performance, alerts, and logs. The platform combines monitoring, alerting, logging, and automated deployment into a single dashboard.
 
@@ -27,7 +27,7 @@ CloudVitals Architecture
 
 ### Architecture Flow
 
-text GitHub Repository       ↓ GitHub Actions       ↓ AWS EC2 Instance  User       ↓ CloudVitals Dashboard (React)       ↓ Node.js Backend API       ├──► Prometheus ───► Alertmanager       └──► Docker Engine ─► Promtail ─► Loki 
+<img width="998" height="1600" alt="ArchDiagram" src="https://github.com/user-attachments/assets/731fa020-83ec-4731-9b0e-a9126f2e68e5" />
 
 ---
 
@@ -202,6 +202,6 @@ Through this project I gained practical experience with:
 
 ## Author
 
-Revath
+Revath Krishna
 
 Cloud Monitoring • DevOps • Infrastructure Automation
