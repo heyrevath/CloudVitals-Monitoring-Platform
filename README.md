@@ -35,23 +35,23 @@ CloudVitals Architecture
 
 ### Dashboard Overview
 
-<img width="700" height="500" alt="dashboard-overview" src="https://github.com/user-attachments/assets/d274d39e-3a31-454a-b8f8-3b52ab0f929e" />
+<img width="700" height="400" alt="dashboard-overview" src="https://github.com/user-attachments/assets/d274d39e-3a31-454a-b8f8-3b52ab0f929e" />
 
 ### Incident History
 
-<img width="700" height="500" alt="IncidentHIstory" src="https://github.com/user-attachments/assets/26628ec1-a7fa-450d-a34d-942ea9eddc92" />
+<img width="700" height="400" alt="IncidentHIstory" src="https://github.com/user-attachments/assets/26628ec1-a7fa-450d-a34d-942ea9eddc92" />
 
 ### Prometheus Monitoring
 
-<img width="700" height="500" alt="Prometheus" src="https://github.com/user-attachments/assets/6f6f05ea-b075-4434-bfa3-bef3c9d80c9a" />
+<img width="700" height="400" alt="Prometheus" src="https://github.com/user-attachments/assets/6f6f05ea-b075-4434-bfa3-bef3c9d80c9a" />
 
 ### Docker Container Monitoring
 
-<img width="700" height="500" alt="DockerContainer" src="https://github.com/user-attachments/assets/2883ca5e-bbd4-4752-a14e-1237296349cd" />
+<img width="700" height="400" alt="DockerContainer" src="https://github.com/user-attachments/assets/2883ca5e-bbd4-4752-a14e-1237296349cd" />
 
 ### GitHub Actions CI/CD
 
-<img width="700" height="500" alt="GithubActions" src="https://github.com/user-attachments/assets/1e009c22-673b-4c2e-a7ad-c4cb814fddbb" />
+<img width="700" height="400" alt="GithubActions" src="https://github.com/user-attachments/assets/1e009c22-673b-4c2e-a7ad-c4cb814fddbb" />
 
 ---
 
