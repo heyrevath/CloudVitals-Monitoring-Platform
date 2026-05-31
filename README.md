@@ -36,6 +36,7 @@ CloudVitals Architecture
 ### Dashboard Overview
 
 Dashboard
+<img width="700" height="500" alt="dashboard-overview" src="https://github.com/user-attachments/assets/d274d39e-3a31-454a-b8f8-3b52ab0f929e" />
 
 ### Incident History
 
