@@ -142,7 +142,29 @@ The deployment process is fully automated through GitHub Actions.
 
 ## Project Structure
 
-text CloudVitals/ │ ├── frontend/ ├── backend/ ├── prometheus/ ├── alertmanager/ ├── loki/ ├── promtail/ ├── docs/ │   ├── architecture/ │   └── screenshots/ │ ├── docker-compose.yml └── .github/workflows/ 
+## Project Structure
+
+```text
+CloudVitals/
+│
+├── frontend/                 # React dashboard
+├── backend/                  # Node.js API
+├── prometheus/               # Monitoring configuration
+├── alertmanager/             # Alert rules and routing
+├── loki/                     # Log aggregation
+├── promtail/                 # Log collection
+│
+├── docs/
+│   ├── architecture/
+│   └── screenshots/
+│
+├── .github/
+│   └── workflows/            # GitHub Actions CI/CD
+│
+├── docker-compose.yml
+├── package.json
+└── README.md
+```
 
 ---
 
