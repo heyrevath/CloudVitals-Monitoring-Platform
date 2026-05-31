@@ -138,9 +138,13 @@ Services deployed:
 
 The deployment process is fully automated through GitHub Actions.
 
----
+### Deployment Notes
 
-## Project Structure
+CloudVitals is deployed on a personal AWS EC2 instance using GitHub Actions.
+
+To optimize cloud resource usage, the EC2 instance may be stopped when not actively being used. As a result, deployment workflows that run while the instance is offline may temporarily fail. Once the instance is available again, deployments resume normally through the automated CI/CD pipeline.
+
+---
 
 ## Project Structure
 
