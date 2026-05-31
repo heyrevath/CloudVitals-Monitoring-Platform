@@ -1,5 +1,8 @@
 # CloudVitals Monitoring Platform
 
+<img width="700" height="450" alt="01-dashboard-overview" src="https://github.com/user-attachments/assets/e8eccb1d-8aba-4367-8f50-94e7f1d009e6" />
+
+
 CloudVitals is a cloud monitoring and observability platform designed to provide real-time visibility into infrastructure health, container status, system performance, alerts, and logs. The platform combines monitoring, alerting, logging, and automated deployment into a single dashboard.
 
 The project was built to simulate a production-style monitoring environment using modern DevOps tools and cloud infrastructure.
