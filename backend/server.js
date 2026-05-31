@@ -17,6 +17,10 @@ client.collectDefaultMetrics();
 
 app.use(cors());
 
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 /*
 |--------------------------------------------------------------------------
 | System Metrics
