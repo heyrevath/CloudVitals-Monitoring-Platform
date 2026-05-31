@@ -173,19 +173,19 @@ CloudVitals/
 ### Clone Repository
 
 bash git clone https://github.com/your-username/CloudVitals-Monitoring-Platform.git  
-```text cd CloudVitals-Monitoring-Platform ```
+```cd CloudVitals-Monitoring-Platform ```
 
 ### Start Application
 
-```text bash docker compose up -d --build```
+```bash docker compose up -d --build```
 
 ### Access Services
 
-Frontend      : http://localhost:5173 
-Backend API   : http://localhost:3001 
-Prometheus    : http://localhost:9090 
-Alertmanager  : http://localhost:9093 
-Grafana       : http://localhost:3000 
+- Frontend      : http://localhost:5173 
+- Backend API   : http://localhost:3001 
+- Prometheus    : http://localhost:9090 
+- Alertmanager  : http://localhost:9093 
+- Grafana       : http://localhost:3000 
 
 ---
 
