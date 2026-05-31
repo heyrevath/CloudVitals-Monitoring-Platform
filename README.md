@@ -192,7 +192,6 @@ bash git clone https://github.com/your-username/CloudVitals-Monitoring-Platform.
 - Backend API   : http://localhost:3001 
 - Prometheus    : http://localhost:9090 
 - Alertmanager  : http://localhost:9093 
-- Grafana       : http://localhost:3000 
 
 ---
 
