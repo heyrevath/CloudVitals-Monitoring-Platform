@@ -27,7 +27,7 @@ CloudVitals Architecture
 
 ### Architecture Flow
 
-<img width="500" height="900" alt="ArchDiagram" src="https://github.com/user-attachments/assets/731fa020-83ec-4731-9b0e-a9126f2e68e5" />
+<img width="500" height="600" alt="ArchDiagram" src="https://github.com/user-attachments/assets/731fa020-83ec-4731-9b0e-a9126f2e68e5" />
 
 ---
 
