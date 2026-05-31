@@ -17,10 +17,6 @@ client.collectDefaultMetrics();
 
 app.use(cors());
 
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
 /*
 |--------------------------------------------------------------------------
 | System Metrics
@@ -520,6 +516,15 @@ app.get("/api/logs", async (req, res) => {
   }
 });
 
+
+/*
+|--------------------------------------------------------------------------
+| Health Check Endpoint
+|--------------------------------------------------------------------------
+*/
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+});
 
 /*
 |--------------------------------------------------------------------------
