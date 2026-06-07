@@ -46,7 +46,7 @@ CloudVitals Architecture
 
 ### Prometheus Monitoring
 
-<img width="3164" height="1942" alt="image" src="https://github.com/user-attachments/assets/a07b3ae6-1d64-4b3a-aaa3-a07f6bd9a185" />
+<img width="700" height="450" alt="image" src="https://github.com/user-attachments/assets/a07b3ae6-1d64-4b3a-aaa3-a07f6bd9a185" />
 
 ### Docker Container Monitoring
 
