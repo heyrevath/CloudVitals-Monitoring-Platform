@@ -28,7 +28,7 @@ The project was built to simulate a production-style monitoring environment usin
 
 CloudVitals Architecture
 
-### Architecture Flow
+### Architecture Flow/Diagram
 
 <img width="500" height="700" alt="ArchDiagram" src="https://github.com/user-attachments/assets/731fa020-83ec-4731-9b0e-a9126f2e68e5" />
 
